@@ -1,5 +1,5 @@
 #!/bin/sh
-# run_qemu.sh - build and boot Puck Mon
+# puckmon.sh - build and boot Puck Mon
 
 cat > puckmon.hex << 'EOF'
 EB3C90000000000000000000000000000000000000000000000000000000000000
@@ -69,5 +69,9 @@ EB023C6172073C6677032C57D1E2D1E2D1E2D1E208C241EBDE4EC3
 EOF
 
 xxd -r -p puckmon.hex puckmon.bin
-truncate -s 1474560 puckmon.bin
-qemu-system-i386 -fda puckmon.bin
+
+# Create a 1.44MB floppy image and copy the binary into it
+dd if=/dev/zero of=puckmon.img bs=512 count=2880
+dd if=puckmon.bin of=puckmon.img conv=notrunc
+
+qemu-system-i386 -fda puckmon.img
