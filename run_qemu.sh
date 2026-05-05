@@ -70,8 +70,9 @@ EOF
 
 xxd -r -p puckmon.hex puckmon.bin
 
-# Create a 1.44MB floppy image and copy the binary into it
+# Create a raw disk image with 2880 sectors, copy our binary in
 dd if=/dev/zero of=puckmon.img bs=512 count=2880
 dd if=puckmon.bin of=puckmon.img conv=notrunc
 
-qemu-system-i386 -fda puckmon.img
+# Boot as a hard disk instead
+qemu-system-i386 -hda puckmon.img
