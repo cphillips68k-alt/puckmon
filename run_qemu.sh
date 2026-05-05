@@ -1,6 +1,7 @@
 #!/bin/sh
-# puckmon.sh - build and run Puck Mon
+# puckmon.sh - build and boot Puck Mon
 
+# 1. Build the full raw image with xxd
 cat > puckmon.hex << 'EOF'
 EB3C90000000000000000000000000000000000000000000000000000000000000
 000000000000000000000000000000000000000000000000000000000031C08ED8
@@ -69,4 +70,10 @@ EB023C6172073C6677032C57D1E2D1E2D1E2D1E208C241EBDE4EC3
 EOF
 
 xxd -r -p puckmon.hex puckmon.bin
-qemu-system-i386 -kernel puckmon.bin
+
+# 2. Create a 1.44MB floppy image, copy puckmon.bin into it
+dd if=/dev/zero of=puckmon.img bs=1024 count=1440
+dd if=puckmon.bin of=puckmon.img conv=notrunc
+
+# 3. Boot
+qemu-system-i386 -fda puckmon.img
