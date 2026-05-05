@@ -1,65 +1,32 @@
 #!/bin/sh
-# puckmon.sh - Puck Mon build & boot
+# puckmon.sh - build and run Puck Mon
 
-# Write boot sector directly as a clean 512-byte binary
-printf '\xEB\x3C\x90' > boot.bin  # jmp short past BPB
-dd if=/dev/zero bs=1 count=0x3B >> boot.bin  # BPB area (59 bytes of zeros)
+cat > puckmon.hex << 'EOF'
+EB3C90000000000000000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000000000000031C08ED8
+8EC08ED0BC007CBE827CE82500B800108EC031DBB402B004B500B102B600B200
+CD137205EA00000010BE8C7CE80300F4EBFDAC84C07406B40EB700CD10EBF4C3
+5075636B204D6F6E0D0A004469736B210D0A0000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000055AA
 
-# Boot code starts at offset 0x3E
-printf '\x31\xC0' >> boot.bin  # xor ax,ax
-printf '\x8E\xD8' >> boot.bin  # mov ds,ax
-printf '\x8E\xC0' >> boot.bin  # mov es,ax
-printf '\x8E\xD0' >> boot.bin  # mov ss,ax
-printf '\xBC\x00\x7C' >> boot.bin  # mov sp,0x7C00
-printf '\xBE\x82\x7C' >> boot.bin  # mov si,banner (0x7C82)
-
-# Call print_str (banner at 0x7C82, print_str at 0x7C71)
-printf '\xE8\x12\x00' >> boot.bin  # call +0x12 = 0x7C71
-
-# Load monitor: mov ax,0x1000 / mov es,ax / xor bx,bx
-printf '\xB8\x00\x10' >> boot.bin
-printf '\x8E\xC0' >> boot.bin
-printf '\x31\xDB' >> boot.bin
-
-# int 0x13: read 2 sectors from sector 2 to ES:BX
-printf '\xB4\x02' >> boot.bin  # ah = 2 (read)
-printf '\xB0\x02' >> boot.bin  # al = 2 (read 2 sectors = 1KB)
-printf '\xB5\x00' >> boot.bin  # ch = 0
-printf '\xB1\x02' >> boot.bin  # cl = 2 (start at sector 2)
-printf '\xB6\x00' >> boot.bin  # dh = 0
-printf '\xB2\x00' >> boot.bin  # dl = 0 (floppy A)
-printf '\xCD\x13' >> boot.bin  # int 0x13
-
-# Jump to monitor (0x1000:0x0000)
-printf '\xEA\x00\x00\x00\x10' >> boot.bin
-
-# Halt (in case monitor returns)
-printf '\xF4' >> boot.bin
-printf '\xEB\xFD' >> boot.bin  # infinite loop
-
-# print_str subroutine (at 0x7C71)
-printf '\xAC' >> boot.bin  # lodsb
-printf '\x84\xC0' >> boot.bin  # test al,al
-printf '\x74\x06' >> boot.bin  # jz .done
-printf '\xB4\x0E' >> boot.bin  # mov ah,0x0E
-printf '\xB7\x00' >> boot.bin  # mov bh,0
-printf '\xCD\x10' >> boot.bin  # int 0x10
-printf '\xEB\xF4' >> boot.bin  # jmp print_str
-printf '\xC3' >> boot.bin  # .done: ret
-
-# Banner at 0x7C82
-printf 'Puck Mon\r\n\0' >> boot.bin
-
-# Pad to exactly 510 bytes
-SIZE=$(wc -c < boot.bin)
-PAD=$((510 - SIZE))
-dd if=/dev/zero bs=1 count=$PAD >> boot.bin
-
-# Boot signature
-printf '\x55\xAA' >> boot.bin
-
-# Now write monitor
-cat > monitor.hex << 'EOF'
 FAB800108ED88EC08ED0BC000CBE8B01E85300BE9E01E84D00E82E00E81900
 803EA4010074F1BEA4018A043C3F743C3C21744E3C53745A3C487460E86200
 83F90074D989D0E87D00E8650089D0E80F01E85F0089D0E82401E84E00E98EFF
@@ -101,18 +68,5 @@ EB023C6172073C6677032C57D1E2D1E2D1E2D1E208C241EBDE4EC3
 000000000000000000000000000000000000
 EOF
 
-xxd -r -p monitor.hex monitor.bin
-
-# Combine: boot sector (512) + monitor (2048) = 2560 bytes
-cat boot.bin monitor.bin > puckmon.raw
-
-# Check size, pad if needed
-SIZE=$(wc -c < puckmon.raw)
-echo "Image size: $SIZE bytes"
-
-# Pad to 1.44MB
-dd if=/dev/zero bs=1024 count=1440 >> puckmon.raw
-truncate -s 1474560 puckmon.raw
-
-# Boot it
-qemu-system-i386 -drive file=puckmon.raw,format=raw,index=0,if=floppy
+xxd -r -p puckmon.hex puckmon.bin
+qemu-system-i386 -kernel puckmon.bin
